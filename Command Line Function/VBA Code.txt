@@ -1,0 +1,68 @@
+Function Calculate_basin(ByVal rainseries As String, ByVal return_period As Double, ByVal catchment_area As Double, ByVal discharge As Double, ByVal sikkerhedsfaktor As Double)
+    Dim oShell As Object, oCmd As String
+    Dim oExec As Object, oOutput As Object
+    Dim arg As Variant
+    Dim s As String, sLine As String
+    Dim ThisWorkbookPath As String
+    Dim ThisWorkbookPathParts As Variant
+    
+    ThisWorkbookPath = ThisWorkbook.Path
+    ThisWorkbookPathParts = Split(ThisWorkbookPath, _
+                        Application.PathSeparator)
+    
+    ThisWorkbookPath = ThisWorkbook.Path
+    ThisWorkbookPathParts = Split(ThisWorkbookPath, _
+                            Application.PathSeparator)
+    
+    ChDrive ThisWorkbookPathParts(LBound(ThisWorkbookPathParts))
+    ChDir ThisWorkbookPath
+    
+    Set oShell = CreateObject("WScript.Shell")
+    oCmd = """C:\Python27\ArcGIS10.7\python.exe""" & " " & """Bassindimensionering Command Line.py""" & " """ & rainseries & """ " & return_period & " " & catchment_area & " " & discharge & " " & sikkerhedsfaktor
+    Debug.Print (oCmd)
+    Set oExec = oShell.Exec(oCmd)
+    Set oOutput = oExec.StdOut
+
+    While Not oOutput.AtEndOfStream
+        sLine = oOutput.ReadLine
+        If sLine <> "" Then s = s & sLine & vbNewLine
+    Wend
+
+    Calculate_basin = CDbl(s)
+End Function
+
+
+Function Calculate_basin_CDS(ByVal rainseries As String, ByVal catchment_area As Double, ByVal discharge As Double, ByVal sikkerhedsfaktor As Double)
+    Dim oShell As Object, oCmd As String
+    Dim oExec As Object, oOutput As Object
+    Dim arg As Variant
+    Dim s As String, sLine As String
+    Dim ThisWorkbookPath As String
+    Dim ThisWorkbookPathParts As Variant
+    
+    ThisWorkbookPath = ThisWorkbook.Path
+    ThisWorkbookPathParts = Split(ThisWorkbookPath, _
+                        Application.PathSeparator)
+    
+    ThisWorkbookPath = ThisWorkbook.Path
+    ThisWorkbookPathParts = Split(ThisWorkbookPath, _
+                            Application.PathSeparator)
+    
+    ChDrive ThisWorkbookPathParts(LBound(ThisWorkbookPathParts))
+    ChDir ThisWorkbookPath
+    
+    Set oShell = CreateObject("WScript.Shell")
+    oCmd = """C:\Python27\ArcGIS10.7\python.exe""" & " " & """Bassindimensionering Command Line CDS.py""" & " """ & rainseries & """ " & " " & catchment_area & " " & discharge & " " & sikkerhedsfaktor
+    Debug.Print (oCmd)
+    Set oExec = oShell.Exec(oCmd)
+    Set oOutput = oExec.StdOut
+
+    While Not oOutput.AtEndOfStream
+        sLine = oOutput.ReadLine
+        If sLine <> "" Then s = s & sLine & vbNewLine
+    Wend
+
+    Calculate_basin_CDS = CDbl(s)
+End Function
+
+

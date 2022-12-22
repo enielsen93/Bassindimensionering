@@ -1,0 +1,32 @@
+import math
+def FindLabel ( [Diameter], [Slope_C], [MaterialID] ):
+  diameter = [Diameter]
+  slope = [Slope_C]
+  material = [MaterialID]
+  if "Concrete" in material:
+    k = 0.0015
+  elif "Plast" in material:
+    k = 0.001
+  else:
+    k = 0.0015
+  g = 9.82
+  kinematicViscosity = 0.0000013
+  R = diameter/4.0
+  Vmin = 0.0
+  Vmax = 500.0
+  I = 1.0e+40
+  
+  while abs(slope-I) > 0.000001:
+    V = (Vmax + Vmin) / 2.0
+    Re = V * R / kinematicViscosity
+    f = 0.01
+    fOld = 1000.0
+    while abs(f - fOld) > 0.00001:
+      fOld = f
+      f = 2.0 / (6.4 - 2.45 * math.log(k / R + 4.7 / (Re * math.sqrt(f)))) ** 2.0
+    I = f * (V ** 2.0 / (2.0 * g * R))
+    if slope > I:
+      Vmin = V
+    else:
+      Vmax = V
+  return V * (diameter / 2.0) ** 2.0 * math.pi
