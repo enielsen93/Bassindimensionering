@@ -7,28 +7,56 @@ Created on Tue Feb 27 11:09:58 2018
 import numpy as np  # matrix manipulation
 
 import datetime  # time series management
-from datetime import datetime as dtnow  # get time of code
 import matplotlib.dates as dates  # time series management
-import matplotlib.pyplot as plt
-from matplotlib.ticker import (MultipleLocator, FormatStrFormatter,
-                               AutoMinorLocator)
 import rainreader
 import sys
+import re
 
 if __name__ == "__main__":
+    # rainseries_file = r"C:\Users\ELNN\OneDrive - Ramboll\Documents\Aarhus Vand\Lisbjerg\Model\02_RAIN\5177_1979_2018.txt"
+    # critical_return_period = 10
+    # rain_series_duration = 38
+    # catchment_area = 9.81
+    # discharge = 34
+    # sikkerhedsfaktor = 1.08
+    # max_volume = 0
     rainseries_file = sys.argv[1]
-    return_period = float(sys.argv[2])
-    catchment_area = float(sys.argv[3]) # bef. ha
-    discharge = float(sys.argv[4]) # L/s
-    sikkerhedsfaktor = float(sys.argv[5]) # - 
+    critical_return_period = float(sys.argv[2])
+    rain_series_duration = float(sys.argv[3])
+    catchment_area = float(sys.argv[4]) # bef. ha
+    discharge = float(sys.argv[5]) # L/s
+    sikkerhedsfaktor = float(sys.argv[6]) # -
+    max_volume = float(sys.argv[7])  # m3
+
+    get_discharge_file = re.compile(r"((?:input:)|(?:import:)|(?:export:)|(?:output:))(with_weir:)*(.+)")
+    input_discharge_timeseries = []
+    output_discharge_filepath = None
+    include_weir = False
+    for argument in sys.argv[8:]:
+        match = get_discharge_file.findall(argument)
+        # print(match)
+        if match:
+            if "input" in match[0][0].lower() or "import" in match[0][0].lower():
+                with open(match[0][2], 'r') as f:
+                    timeseries = []
+                    for line in f.readlines():
+                        timeseries.append(float(line))
+                    timeseries.append(0)
+                    input_discharge_timeseries.append(np.array(timeseries))
+            elif "output" in match[0][0].lower() or "export" in match[0][0].lower():
+                if "with_weir" in match[0][1].lower():
+                    include_weir = True
+                output_discharge_filepath = match[0][2]
+
     km2 = rainreader.KM2(
-            rainseries_file)#,
+            rainseries_file, initial_loss = 0.6, concentration_time = 30)#,
             # initial_loss = 0.6, concentration_time = 30)
 
-    gaugetime, gaugeint = km2.gaugetime, km2.gaugeint
+    # gaugetime, gaugeint = km2.gaugetime, km2.gaugeint
+    gaugetime, gaugeint = km2.pad_timeseries_with_zeros()
 
     # Gentagelsesperiode
-    RP = ((gaugetime[-1]-gaugetime[0])/365.25)/np.arange(1,10)
+    RP = ((gaugetime[-1]-gaugetime[0])/365.25)/np.arange(1,10) if rain_series_duration == 0 else rain_series_duration
 
     udlobstal = [discharge]
     #udlobstal = [0.5, 0.6, 0.8, 1.0, 1.25, 1.5, 2, 3, 4, 6, 8, 12, 20]
@@ -38,31 +66,38 @@ if __name__ == "__main__":
     # sikkerhedsfaktor = 1.00
 
     # Initialiser volumen-matrix
-    V = np.zeros((len(gaugetime), len(udlobstal)))
+    # V = np.zeros((len(gaugetime), len(udlobstal)))
 
     # DT (Tidsafstand mellem to maks-værdier
     DT = 10
 
-    inlet_discharge = catchment_area * gaugeint / 1e3 * 60 * sikkerhedsfaktor # Indløbsvandføring
-    gaugetime_dt = np.diff(gaugetime) * 24 * 60 # Beregner tidsskridt mellem hver værdi i regnmåler
+    inlet_discharge = np.array(catchment_area * 1e4 * gaugeint / 1e6 * 60 * sikkerhedsfaktor)# Indløbsvandføring
+    for timeseries in input_discharge_timeseries:
+        inlet_discharge += timeseries
+    gaugetime_dt = np.diff(gaugetime) * 24 * 60 * 60 # s Beregner tidsskridt mellem hver værdi i regnmåler
     Vmax = np.empty((100, len(udlobstal)))
+
+    V = np.zeros((len(gaugetime), len(udlobstal)))
+    outlet_discharge = []
+
     for udlobidx in range(len(udlobstal)):
         # Beregn potentiel udløbsvandføring
-        outlet_discharge_potential = gaugetime_dt * udlobstal[udlobidx] / 1e4 * 60
+        outlet_discharge_potential = gaugetime_dt * udlobstal[udlobidx] / 1e3 # m3
+        outlet_discharge = np.zeros(gaugetime_dt.shape)
 
         overflow = np.zeros(len(gaugetime))
         # Iterer over alle regnnedbør
         for i, t in enumerate(gaugetime[1:], start = 1):
             # Hvis volumen er over 0, er der vandføring i udløb
-            if V[(i - 1, udlobidx)] > 0:
+            if V[(i-1, udlobidx)] > 0:
                 # Udløb er udløbstal -- Kan ikke overstige bassinvolumen
                 # mm [l/s/ha -> mm/min]
-                outlet_discharge = min(outlet_discharge_potential[i-1], V[(i - 1, udlobidx)])
+                outlet_discharge[i-1] = min(outlet_discharge_potential[i-1], V[i-1]) # m3
             else:
                 # Hvis volumen er lig 0, er der ingen udløb
-                outlet_discharge = 0
+                outlet_discharge[i-1] = 0
             # Regn bassinvolumen til tiden t, ved V(t) = V(t-1) + ind - ud
-            V[(i, udlobidx)] = V[(i - 1, udlobidx)] + inlet_discharge[i-1] - outlet_discharge
+            V[(i, udlobidx)] = V[(i - 1, udlobidx)] + inlet_discharge[i-1] - outlet_discharge[i-1]
 
         idx = np.flipud(np.argsort(V[:, udlobidx]))
         Vmax[0, udlobidx] = V[(idx[0], udlobidx)]
@@ -82,5 +117,46 @@ if __name__ == "__main__":
             if k == 100:
                 break
 
-    V_t5 = np.interp(return_period, (38/np.array(range(1,len(Vmax[:,0])+1)))[::-1],Vmax[::-1,0])*10
-    print("%d"% V_t5)
+    V_t5 = np.interp(critical_return_period, (rain_series_duration/np.array(range(1,len(Vmax[:,0])+1)))[::-1],Vmax[::-1,0])
+
+    if not max_volume:
+        max_volume = V_t5
+
+    if include_weir and max_volume>0:
+        V = np.zeros((len(gaugetime), len(udlobstal)))
+        Vmax = np.empty((100, len(udlobstal)))
+
+        outlet_discharge = []
+
+        for udlobidx in range(len(udlobstal)):
+            # Beregn potentiel udløbsvandføring
+            outlet_discharge_potential = gaugetime_dt * udlobstal[udlobidx] / 1e3 #m3
+            outlet_discharge = np.zeros(gaugetime_dt.shape)
+
+            overflow = np.zeros(len(gaugetime))
+            # Iterer over alle regnnedbør
+            for i, t in enumerate(gaugetime[1:], start=1):
+                # Hvis volumen er over 0, er der vandføring i udløb
+                if V[(i - 1, udlobidx)] > 0:
+                    # Udløb er udløbstal -- Kan ikke overstige bassinvolumen
+                    # mm [l/s/ha -> mm/min]
+                    outlet_discharge[i - 1] = min(outlet_discharge_potential[i - 1], V[(i - 1, udlobidx)])
+                else:
+                    # Hvis volumen er lig 0, er der ingen udløb
+                    outlet_discharge[i - 1] = 0
+                # Regn bassinvolumen til tiden t, ved V(t) = V(t-1) + ind - ud
+                V[(i, udlobidx)] = V[(i - 1, udlobidx)] + inlet_discharge[i - 1] - outlet_discharge[i - 1]
+
+                if V[(i, udlobidx)] > max_volume:
+                    diff_V = V[(i, udlobidx)] - max_volume
+                    V[(i, udlobidx)] = max_volume
+                    outlet_discharge[i-1] += diff_V
+                    # print((outlet_discharge[i-1], diff_V))
+
+    if output_discharge_filepath:
+        with open(output_discharge_filepath,'w') as f:
+            # print(outlet_discharge_potential)
+            for discharge in outlet_discharge:
+                f.write("%f\n" % discharge)
+    # print("%d" % np.max(timeseries))
+    print("%d" % V_t5)

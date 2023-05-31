@@ -1,4 +1,4 @@
-Function Calculate_basin(ByVal rainseries As String, ByVal critical_return_period As Double, ByVal rain_series_duration As Double, ByVal catchment_area As Double, ByVal discharge As Double, ByVal sikkerhedsfaktor As Double, ByVal maxvolume As Double, Optional ByVal discharge_filepath1 As String = "", Optional ByVal discharge_filepath2 As String = "", Optional ByVal discharge_filepath3 As String = "", Optional ByVal discharge_filepath4 As String = "")
+Function Calculate_basin(ByVal rainseries As String, ByVal critical_return_period As Double, ByVal rain_series_duration As Double, ByVal catchment_area As Double, ByVal discharge As Double, ByVal sikkerhedsfaktor As Double, Optional ByVal discharge_filepath1 As String = "", Optional ByVal discharge_filepath2 As String = "", Optional ByVal discharge_filepath3 As String = "", Optional ByVal discharge_filepath4 As String = "")
     Application.Volatile (False)
     Dim oShell As Object, oCmd As String
     Dim oExec As Object, oOutput As Object
@@ -8,7 +8,7 @@ Function Calculate_basin(ByVal rainseries As String, ByVal critical_return_perio
     Dim ThisWorkbookPathParts As Variant
         
     Set oShell = CreateObject("WScript.Shell")
-    oCmd = """C:\Python27\ArcGIS10.7\python.exe""" & " ""C:\Makroer & Beregningsark\Bassindimensionering\Command Line Function\Bassindimensionering Command Line.py""" & " """ & rainseries & """ " & critical_return_period & " " & rain_series_duration & " " & catchment_area & " " & discharge & " " & sikkerhedsfaktor & " " & maxvolume
+    oCmd = """C:\Python27\ArcGIS10.7\python.exe""" & " ""C:\Makroer & Beregningsark\Bassindimensionering\Command Line Function\Bassindimensionering Command Line.py""" & " """ & rainseries & """ " & critical_return_period & " " & rain_series_duration & " " & catchment_area & " " & discharge & " " & sikkerhedsfaktor
     
     If discharge_filepath1 <> "" Then
         oCmd = oCmd & " """ & discharge_filepath1 & """"
